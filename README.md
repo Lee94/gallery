@@ -70,13 +70,13 @@ services:
 ## 本地开发
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env   # 填 SESSION_SECRET
-npm run db:migrate     # 初始化/更新数据库
-npm run dev
+pnpm run db:migrate    # 初始化/更新数据库
+pnpm run dev
 ```
 
-改动 `src/db/schema.ts` 后执行 `npm run db:generate` 生成迁移，再 `npm run db:migrate` 应用。
+改动 `src/db/schema.ts` 后执行 `pnpm run db:generate` 生成迁移，再 `pnpm run db:migrate` 应用。
 
 ## 技术栈
 

@@ -10,10 +10,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 常用命令
 
-- `npm run dev` — 需先 `cp .env.example .env` 并填 `SESSION_SECRET`，再 `npm run db:migrate`
-- `npm run db:generate` — 改 `src/db/schema.ts` 后生成迁移 SQL（提交进 git）
-- `npm run db:migrate` — 应用迁移（容器 entrypoint 也会执行）
-- `npm run lint` / `npx tsc --noEmit`
+- 包管理器用 pnpm（版本固定在 `package.json` 的 `packageManager` 字段）
+- `pnpm run dev` — 需先 `cp .env.example .env` 并填 `SESSION_SECRET`，再 `pnpm run db:migrate`
+- `pnpm run db:generate` — 改 `src/db/schema.ts` 后生成迁移 SQL（提交进 git）
+- `pnpm run db:migrate` — 应用迁移（容器 entrypoint 也会执行）
+- `pnpm run lint` / `pnpm exec tsc --noEmit`
 - `docker compose up -d --build` — 生产部署，数据在 `./data`（SQLite + 上传文件）
 
 ## 架构要点

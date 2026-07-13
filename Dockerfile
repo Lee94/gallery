@@ -40,8 +40,8 @@ COPY --from=deps /opt/drizzle-orm ./node_modules/drizzle-orm
 COPY drizzle ./drizzle
 COPY scripts/migrate.mjs ./migrate.mjs
 COPY docker-entrypoint.sh ./
+# 不声明 USER：entrypoint 以 root 启动，修正 bind mount 的 /data 属主后降权到 node
 RUN chmod +x docker-entrypoint.sh && mkdir -p /data && chown -R node:node /data /app
-USER node
 VOLUME /data
 EXPOSE 3000
 ENTRYPOINT ["./docker-entrypoint.sh"]

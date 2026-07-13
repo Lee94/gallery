@@ -23,6 +23,30 @@ docker compose up -d --build
 
 > 网络受限（无法访问 GitHub / Debian 官方源）时，在 `.env` 里加一行 `DEBIAN_MIRROR=mirrors.ustc.edu.cn` 再构建；基础镜像拉不动可先 `docker pull docker.m.daocloud.io/library/node:22-bookworm-slim && docker tag docker.m.daocloud.io/library/node:22-bookworm-slim node:22-bookworm-slim`。
 
+### 用预构建镜像部署（免本地构建）
+
+每次推送 `master` 会自动构建并发布 `edge` 镜像，打 `v*` tag 会发布对应版本号和 `latest`（见 `.github/workflows/docker-publish.yml`，支持 amd64 / arm64）。直接拉取即可，无需在服务器上构建：
+
+```bash
+docker pull ghcr.io/lee94/gallery:latest
+```
+
+把 `docker-compose.yml` 里的 `build:` 段换成 `image:` 即可用现成镜像：
+
+```yaml
+services:
+  gallery:
+    image: ghcr.io/lee94/gallery:latest
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+```
+
 首次打开 `http://<你的域名>:3000/register` 注册的用户即管理员，之后在「邀请码」页面生成邀请码给其他用户。
 
 ### 反向代理

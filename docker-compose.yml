@@ -1,0 +1,16 @@
+services:
+  gallery:
+    build:
+      context: .
+      args:
+        # 网络受限时可在 .env 里设 DEBIAN_MIRROR=mirrors.ustc.edu.cn
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-deb.debian.org}
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      # 容器内数据目录固定为 /data（覆盖 .env 里的本地开发路径）
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

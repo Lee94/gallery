@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { shares } from "@/db/schema";
 import { verifyPassword } from "@/lib/auth/password";
+import { getEnv } from "@/lib/env";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { createAccessCookie } from "@/lib/share-access";
 
@@ -37,7 +38,7 @@ export async function unlockShare(
     store.set(cookie.name, cookie.value, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: getEnv().cookieSecure,
       path: "/",
       maxAge: cookie.maxAge,
     });

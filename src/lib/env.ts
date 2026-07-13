@@ -19,6 +19,8 @@ export interface Env {
   sessionSecret: string;
   maxFileSizeBytes: number;
   appUrl: string;
+  /** cookie 的 Secure 标志跟随 APP_URL 协议：http 部署时浏览器会拒存 Secure cookie */
+  cookieSecure: boolean;
   trustProxy: boolean;
 }
 
@@ -39,6 +41,7 @@ export function getEnv(): Env {
       sessionSecret: parsed.data.SESSION_SECRET,
       maxFileSizeBytes: parsed.data.MAX_FILE_SIZE_MB * 1024 * 1024,
       appUrl: parsed.data.APP_URL.replace(/\/$/, ""),
+      cookieSecure: new URL(parsed.data.APP_URL).protocol === "https:",
       trustProxy: parsed.data.TRUST_PROXY === "1",
     };
   }

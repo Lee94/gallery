@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { sessions, users, type Session, type User } from "@/db/schema";
+import { getEnv } from "@/lib/env";
 
 export const SESSION_COOKIE = "session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 天
@@ -18,7 +19,7 @@ async function setSessionCookie(token: string, expiresAt: number) {
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: getEnv().cookieSecure,
     path: "/",
     expires: new Date(expiresAt),
   });

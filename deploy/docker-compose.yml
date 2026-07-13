@@ -1,0 +1,26 @@
+# 部署目标：http://43.156.238.106:7777（IP 直连，无反向代理）
+# 直接拉 GHCR 预构建镜像运行，不需要源码，也不需要 deploy/Dockerfile
+#
+# 仓库私有 => 镜像私有，首次需登录：
+#   docker login ghcr.io -u <github用户名> -p <有 read:packages 权限的 PAT>
+#
+# 启动：  docker compose up -d
+# 升级：  docker compose pull && docker compose up -d
+services:
+  gallery:
+    image: ghcr.io/lee94/gallery:edge
+    ports:
+      - "7777:7777"
+    environment:
+      PORT: "7777"
+      # APP_URL 同时用于生成分享链接和上传接口的 Origin 校验，须与浏览器访问地址完全一致
+      APP_URL: http://43.156.238.106:7777
+      # ⚠️ 明文密钥：换密钥会使所有会话/分享 cookie 即刻失效
+      SESSION_SECRET: mvnol1vldvSeaANBQScpBcHl62rrndcl0Jufid/uE0cZbOKqcu3cvJ+LVhpgeAeb
+      MAX_FILE_SIZE_MB: "50"
+      TRUST_PROXY: "0"
+    volumes:
+      # SQLite 数据库 + 上传文件都在 /data，必须持久化
+      # 属主无需手动处理：entrypoint 以 root 启动，自动 chown 后降权到 node
+      - ./data:/data
+    restart: unless-stopped

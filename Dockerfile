@@ -1,5 +1,6 @@
 # glibc 镜像：better-sqlite3 / @node-rs/argon2 均有 linux-gnu 预编译产物，避开 musl 编译
-FROM node:22-bookworm-slim AS deps
+# 用 node:24（npm 11）与本地开发及 package-lock.json 的生成环境保持一致
+FROM node:24-bookworm-slim AS deps
 WORKDIR /app
 # 网络受限环境可换 Debian 源，如 --build-arg DEBIAN_MIRROR=mirrors.ustc.edu.cn
 ARG DEBIAN_MIRROR=deb.debian.org
@@ -11,14 +12,14 @@ RUN sed -i "s/deb.debian.org/${DEBIAN_MIRROR}/g" /etc/apt/sources.list.d/debian.
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:22-bookworm-slim AS builder
+FROM node:24-bookworm-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:22-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \

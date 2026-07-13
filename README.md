@@ -21,7 +21,7 @@ docker compose up -d --build
 
 数据（SQLite 数据库 + 上传的文件）都在 `./data` 目录，备份该目录即可。
 
-> 网络受限（无法访问 GitHub / Debian 官方源）时，在 `.env` 里加一行 `DEBIAN_MIRROR=mirrors.ustc.edu.cn` 再构建；基础镜像拉不动可先 `docker pull docker.m.daocloud.io/library/node:22-bookworm-slim && docker tag docker.m.daocloud.io/library/node:22-bookworm-slim node:22-bookworm-slim`。
+> 网络受限（无法访问 GitHub / Debian 官方源）时，在 `.env` 里加一行 `DEBIAN_MIRROR=mirrors.ustc.edu.cn` 再构建；基础镜像拉不动可先 `docker pull docker.m.daocloud.io/library/node:24-bookworm-slim && docker tag docker.m.daocloud.io/library/node:24-bookworm-slim node:24-bookworm-slim`。
 
 ### 用预构建镜像部署（免本地构建）
 

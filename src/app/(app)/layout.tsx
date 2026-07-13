@@ -17,6 +17,12 @@ export default async function AppLayout({
             <Link href="/dashboard" className="text-base font-semibold tracking-tight">
               Gallery
             </Link>
+            <Link
+              href="/settings/tokens"
+              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              API 令牌
+            </Link>
             {user.role === "admin" && (
               <Link
                 href="/admin/invites"

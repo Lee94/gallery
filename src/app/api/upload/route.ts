@@ -1,12 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { nanoid } from "nanoid";
-import { getDb } from "@/db";
-import { shares } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getEnv } from "@/lib/env";
-import { classifyFile } from "@/lib/file-kind";
-import { generateSlug } from "@/lib/slug";
-import { deleteFile, saveFile } from "@/lib/storage";
+import { fileTooLargeMessage, getEnv } from "@/lib/env";
+import { createShare } from "@/lib/shares/create";
 
 // route handler 没有 Server Action 的内建 Origin 校验，手动做（防 CSRF）
 function isValidOrigin(request: NextRequest): boolean {
@@ -18,12 +13,6 @@ function isValidOrigin(request: NextRequest): boolean {
   } catch {
     return false;
   }
-}
-
-function isSlugTaken(e: unknown): boolean {
-  if (!(e instanceof Error)) return false;
-  const cause = e.cause instanceof Error ? e.cause.message : "";
-  return `${e.message} ${cause}`.includes("UNIQUE constraint failed: shares.slug");
 }
 
 export async function POST(request: NextRequest) {
@@ -40,10 +29,7 @@ export async function POST(request: NextRequest) {
   // 预检 Content-Length，超限直接拒绝，不读 body（1MB 余量给 multipart 边界）
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   if (contentLength > env.maxFileSizeBytes + 1024 * 1024) {
-    return NextResponse.json(
-      { error: `文件超过大小限制（${env.maxFileSizeBytes / 1024 / 1024}MB）` },
-      { status: 413 },
-    );
+    return NextResponse.json({ error: fileTooLargeMessage() }, { status: 413 });
   }
 
   const form = await request.formData();
@@ -52,44 +38,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "缺少文件" }, { status: 400 });
   }
   if (file.size > env.maxFileSizeBytes) {
-    return NextResponse.json(
-      { error: `文件超过大小限制（${env.maxFileSizeBytes / 1024 / 1024}MB）` },
-      { status: 413 },
-    );
+    return NextResponse.json({ error: fileTooLargeMessage() }, { status: 413 });
   }
 
-  const originalName =
-    file.name.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 255) || "untitled";
-  const { kind, mimeType } = classifyFile(originalName);
-  const id = nanoid(16);
+  const { slug, url } = await createShare({
+    ownerId: user.id,
+    filename: file.name,
+    content: file.stream(),
+    size: file.size,
+  });
 
-  await saveFile(id, file.stream());
-
-  const db = getDb();
-  const now = Date.now();
-  let slug = "";
-  for (let attempt = 0; ; attempt++) {
-    slug = generateSlug();
-    try {
-      db.insert(shares)
-        .values({
-          id,
-          ownerId: user.id,
-          slug,
-          originalName,
-          mimeType,
-          size: file.size,
-          kind,
-          createdAt: now,
-        })
-        .run();
-      break;
-    } catch (e) {
-      if (isSlugTaken(e) && attempt < 3) continue;
-      await deleteFile(id);
-      throw e;
-    }
-  }
-
-  return NextResponse.json({ slug, url: `${env.appUrl}/s/${slug}` });
+  return NextResponse.json({ slug, url });
 }

@@ -44,3 +44,8 @@ export function getEnv(): Env {
   }
   return cached;
 }
+
+/** 文件超限的统一提示文案（upload route 与 MCP 工具共用，避免多处硬编码换算） */
+export function fileTooLargeMessage(): string {
+  return `文件超过大小限制（${getEnv().maxFileSizeBytes / 1024 / 1024}MB）`;
+}

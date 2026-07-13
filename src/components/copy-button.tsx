@@ -19,8 +19,20 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
-/** path 会在点击时拼上 window.location.origin（避免 SSR 期访问 window） */
-export function CopyButton({ path }: { path: string }) {
+/**
+ * 复制按钮。
+ * - 传 `path`：点击时拼上 window.location.origin 复制完整链接（避免 SSR 期访问 window）。
+ * - 传 `text`：复制原始文本（如 API 令牌）。
+ */
+export function CopyButton({
+  path,
+  text,
+  label = "复制链接",
+}: {
+  path?: string;
+  text?: string;
+  label?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   return (
@@ -28,12 +40,12 @@ export function CopyButton({ path }: { path: string }) {
       type="button"
       className={secondaryButtonClass}
       onClick={async () => {
-        await copyText(`${window.location.origin}${path}`);
+        await copyText(text ?? `${window.location.origin}${path ?? ""}`);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
     >
-      {copied ? "已复制" : "复制链接"}
+      {copied ? "已复制" : label}
     </button>
   );
 }

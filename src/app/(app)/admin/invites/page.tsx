@@ -5,16 +5,11 @@ import { createInvite, revokeInvite } from "@/actions/invites";
 import { getDb } from "@/db";
 import { inviteCodes, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { formatDateTime } from "@/lib/format";
 import { CopyButton } from "@/components/copy-button";
 import { primaryButtonClass, secondaryButtonClass } from "@/components/ui";
 
 export const metadata: Metadata = { title: "邀请码" };
-
-function formatDate(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export default async function InvitesPage() {
   // layout 已校验登录，这里二次校验角色
@@ -57,7 +52,7 @@ export default async function InvitesPage() {
                 {invite.code}
               </code>
               <span className="text-xs text-zinc-500" suppressHydrationWarning>
-                {formatDate(invite.createdAt)} 创建
+                {formatDateTime(invite.createdAt)} 创建
               </span>
               <span className="flex-1" />
               {invite.usedBy ? (
@@ -66,7 +61,7 @@ export default async function InvitesPage() {
                   suppressHydrationWarning
                 >
                   已被 {usedByEmail ?? "（已注销用户）"} 使用
-                  {invite.usedAt ? ` · ${formatDate(invite.usedAt)}` : ""}
+                  {invite.usedAt ? ` · ${formatDateTime(invite.usedAt)}` : ""}
                 </span>
               ) : (
                 <span className="flex items-center gap-2">

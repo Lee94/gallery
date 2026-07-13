@@ -9,6 +9,7 @@ import {
   setSharePassword,
   type ShareActionResult,
 } from "@/actions/shares";
+import { formatDateTime } from "@/lib/format";
 import { CopyButton } from "./copy-button";
 import {
   dangerButtonClass,
@@ -41,12 +42,6 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function formatDate(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 /** 转成 datetime-local 需要的 "YYYY-MM-DDTHH:mm"（本地时区） */
@@ -96,7 +91,7 @@ function ShareItem({ share }: { share: ShareRow }) {
             {share.originalName}
           </a>
           <p className="mt-0.5 text-xs text-zinc-500" suppressHydrationWarning>
-            {formatSize(share.size)} · {formatDate(share.createdAt)}
+            {formatSize(share.size)} · {formatDateTime(share.createdAt)}
             {share.hasPassword && (
               <span className="ml-2 text-amber-600 dark:text-amber-400">
                 🔒 有密码
@@ -104,7 +99,7 @@ function ShareItem({ share }: { share: ShareRow }) {
             )}
             {share.expiresAt && (
               <span className={`ml-2 ${share.expired ? "text-red-500" : ""}`}>
-                {share.expired ? "已过期" : "过期于"} {formatDate(share.expiresAt)}
+                {share.expired ? "已过期" : "过期于"} {formatDateTime(share.expiresAt)}
               </span>
             )}
           </p>

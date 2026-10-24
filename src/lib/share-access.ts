@@ -3,7 +3,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { shares, type Share } from "@/db/schema";
+import { shares, type Share, type User } from "@/db/schema";
 import { validateSession } from "@/lib/auth/session";
 import { getEnv } from "@/lib/env";
 
@@ -64,7 +64,7 @@ export type ShareAccess =
   | { status: "not_found" }
   // 有密码且未解锁：share 只用于渲染密码门，页面不得外泄文件名等元数据
   | { status: "locked"; share: Share }
-  | { status: "ok"; share: Share; isOwner: boolean };
+  | { status: "ok"; share: Share; isOwner: boolean; user: User | null };
 
 /**
  * 预览页与 raw 端点共用的访问判定（React cache：同一请求内 generateMetadata/page 只查一次）。
@@ -77,17 +77,17 @@ export const resolveShareAccess = cache(
     if (share.expiresAt !== null && share.expiresAt <= Date.now()) {
       return { status: "not_found" };
     }
-    if (!share.passwordHash) return { status: "ok", share, isOwner: false };
-
     const session = await validateSession();
-    if (session && session.user.id === share.ownerId) {
-      return { status: "ok", share, isOwner: true };
+    const user = session?.user ?? null;
+    if (user?.id === share.ownerId) {
+      return { status: "ok", share, isOwner: true, user };
     }
+    if (!share.passwordHash) return { status: "ok", share, isOwner: false, user };
 
     const store = await cookies();
     const token = store.get(accessCookieName(share.id))?.value;
     if (verifyAccessToken(share, token)) {
-      return { status: "ok", share, isOwner: false };
+      return { status: "ok", share, isOwner: false, user };
     }
     return { status: "locked", share };
   },

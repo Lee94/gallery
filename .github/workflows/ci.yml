@@ -38,6 +38,9 @@ jobs:
       - name: Typecheck
         run: pnpm exec tsc --noEmit
 
+      - name: Test
+        run: pnpm run test
+
       # getEnv() 惰性，next build 不需要运行时环境变量
       - name: Build
         run: pnpm run build

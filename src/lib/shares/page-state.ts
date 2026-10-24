@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { sharePageStates, type SharePageState } from "@/db/schema";
+import { publishShareEvent } from "@/lib/share-events";
 
 export interface PageStateSnapshot {
   data: unknown;
@@ -62,6 +63,7 @@ export function savePageState(
 
   const snapshot = getPageStateSnapshot(shareId);
   if (!snapshot) return { status: "not_found" };
+  if (result.changes === 1) publishShareEvent(shareId, "page-state", { version: snapshot.version });
   return result.changes === 1
     ? { status: "ok", snapshot }
     : { status: "conflict", snapshot };

@@ -1,14 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteShare,
+  moveShare,
   removeSharePassword,
   resetSharePageState,
   setShareExpiry,
   setSharePageStateEnabled,
   setSharePassword,
+  setSharePinned,
   type ShareActionResult,
 } from "@/actions/shares";
 import { formatDateTime } from "@/lib/format";
@@ -23,6 +26,9 @@ export type ShareRow = {
   id: string;
   slug: string;
   originalName: string;
+  title: string | null;
+  icon: string;
+  pinned: boolean;
   size: number;
   kind: string;
   hasPassword: boolean;
@@ -91,9 +97,9 @@ function ShareItem({ share }: { share: ShareRow }) {
             target="_blank"
             rel="noreferrer"
             className="block truncate text-sm font-medium hover:text-indigo-600 dark:hover:text-indigo-400"
-            title={share.originalName}
+            title={share.title ?? share.originalName}
           >
-            {share.originalName}
+            {share.icon && <span className="mr-1">{share.icon}</span>}{share.title ?? share.originalName}
           </a>
           <p className="mt-0.5 text-xs text-zinc-500" suppressHydrationWarning>
             {formatSize(share.size)} · {formatDateTime(share.createdAt)}
@@ -115,13 +121,21 @@ function ShareItem({ share }: { share: ShareRow }) {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button type="button" disabled={pending} className={secondaryButtonClass} onClick={() => run(() => moveShare(share.id, -1))} title="上移">↑</button>
+          <button type="button" disabled={pending} className={secondaryButtonClass} onClick={() => run(() => moveShare(share.id, 1))} title="下移">↓</button>
+          <button type="button" disabled={pending} className={secondaryButtonClass} onClick={() => run(() => setSharePinned(share.id, !share.pinned))}>
+            {share.pinned ? "取消固定" : "固定"}
+          </button>
           <CopyButton path={`/s/${share.slug}`} />
+          <Link href={`/dashboard/${share.slug}`} className={secondaryButtonClass}>
+            管理
+          </Link>
           <button
             type="button"
             className={secondaryButtonClass}
             onClick={() => setExpanded((v) => !v)}
           >
-            管理 {expanded ? "▴" : "▾"}
+            快速 {expanded ? "▴" : "▾"}
           </button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { getEnv } from "@/lib/env";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { isValidOrigin } from "@/lib/request-origin";
 import { resolveShareAccess } from "@/lib/share-access";
+import { checkDataCompatibility } from "@/lib/shares/data-compatibility";
 import {
   getPageStateSnapshot,
   savePageState,
@@ -50,7 +51,7 @@ async function readBodyWithLimit(
 
 type StateAccess = { share: Share } | { response: NextResponse };
 
-async function resolveStateAccess(slug: string): Promise<StateAccess> {
+async function resolveStateAccess(slug: string, request: NextRequest): Promise<StateAccess> {
   const access = await resolveShareAccess(slug);
   if (access.status === "not_found") return { response: notFound() };
   if (access.status === "locked") {
@@ -63,15 +64,17 @@ async function resolveStateAccess(slug: string): Promise<StateAccess> {
   }
   // 未启用与不存在统一 404，不把普通 HTML 变成匿名可写存储
   if (!access.share.pageStateEnabled) return { response: notFound() };
+  const incompatible = checkDataCompatibility(request.headers, access.share);
+  if (incompatible) return { response: json(incompatible.body, incompatible.status) };
   return { share: access.share };
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   ctx: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await ctx.params;
-  const access = await resolveStateAccess(slug);
+  const access = await resolveStateAccess(slug, request);
   if ("response" in access) return access.response;
 
   const ip = await getClientIp();
@@ -100,7 +103,7 @@ export async function PUT(
   }
 
   const { slug } = await ctx.params;
-  const access = await resolveStateAccess(slug);
+  const access = await resolveStateAccess(slug, request);
   if ("response" in access) return access.response;
 
   const ip = await getClientIp();

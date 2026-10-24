@@ -3,7 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   // drizzle-orm 也保持外置：standalone 输出里 migrate.mjs 需要以真实模块 import 它
-  serverExternalPackages: ["better-sqlite3", "@node-rs/argon2", "drizzle-orm"],
+  // esbuild 依赖平台二进制，必须由 Node 原生加载，不能交给 Turbopack 打包
+  serverExternalPackages: ["better-sqlite3", "@node-rs/argon2", "drizzle-orm", "esbuild"],
   async headers() {
     return [
       {

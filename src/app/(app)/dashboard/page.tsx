@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { shares, sharePageStates, type Share } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -23,6 +23,9 @@ function toShareRows(rows: ShareWithState[]): ShareRow[] {
     id: s.id,
     slug: s.slug,
     originalName: s.originalName,
+    title: s.title,
+    icon: s.icon,
+    pinned: s.pinned,
     size: s.size,
     kind: s.kind,
     hasPassword: s.passwordHash !== null, // 只传布尔值，hash 不进客户端
@@ -49,7 +52,7 @@ export default async function DashboardPage() {
       .from(shares)
       .leftJoin(sharePageStates, eq(shares.id, sharePageStates.shareId))
       .where(eq(shares.ownerId, user.id))
-      .orderBy(desc(shares.createdAt))
+      .orderBy(desc(shares.pinned), asc(shares.sortOrder), desc(shares.updatedAt))
       .all(),
   );
 

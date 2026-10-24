@@ -5,11 +5,40 @@
 ## 功能
 
 - **文件预览**：HTML（沙箱 iframe 隔离）、PDF（浏览器原生）、图片、Markdown（GFM 渲染）、纯文本，其他类型提供下载
+- **共享页面数据**：HTML 可选择启用一份访客共用、可写的 JSON；通过 SDK 保存后，其他访客刷新即可看到变化
 - **分享链接**：不可枚举的随机短链 `/s/<slug>`，任何人可直接打开
 - **访问密码**：每个分享可单独设置/修改/移除密码，改密码后已发放的访问凭证立即失效
 - **过期时间**：可设置分享自动过期
 - **多用户**：邮箱+密码注册；第一个注册的用户自动成为管理员，之后需要管理员生成的邀请码（一码一用）
 - **安全**：用户上传的 HTML 在 opaque origin 中运行（CSP sandbox + iframe sandbox 双层隔离），读不到主站的登录态；argon2id 密码哈希；登录/注册/密码尝试限流
+
+## 共享页面数据
+
+上传 HTML 时勾选「启用共享页面数据」，或在已有 HTML 的管理面板中启用。**所有能打开分享的人都能读取和修改这份数据**；有访问密码时需先解锁。适用于共享 todolist、投票、简单配置等小型场景，不适合存放机密或需要独立编辑权限的数据。
+
+页面引入 `/sdk/page-state-v1.js`，通过 `get / save / update` 读写。`update` 使用版本号检测冲突，并在最新数据上重试数据转换：
+
+```html
+<script src="/sdk/page-state-v1.js"></script>
+<script>
+  (async () => {
+    const store = GalleryPageState.connect();
+    const snapshot = await store.get();
+
+    const todo = { id: crypto.randomUUID(), text: "买牛奶", done: false };
+    const saved = await store.update((data) => ({
+      todos: [...(data?.todos ?? []), todo],
+    }));
+    console.log(saved.version);
+  })();
+</script>
+```
+
+- 数据只保存在服务端，访客之间共用；不是 `localStorage`，已有本地存储代码需要改用 SDK。
+- 当前不提供自动推送，其他已打开的页面刷新后看到最新值。
+- 每个分享只保留最新 JSON，默认最大 256KB；带 `baseVersion` 的条件写入避免静默覆盖。
+- 管理面板可以停用（保留数据）或清空数据。删除分享会级联删除数据。
+- 可直接上传 `examples/shared-todolist.html` 体验。共享存储只在 `/s/<slug>` 预览页生效，直接打开 raw 文件不会启用。
 
 ## 部署（Docker）
 
@@ -55,7 +84,7 @@ services:
 
 - nginx 默认 `client_max_body_size` 只有 1MB，需调大（如 `client_max_body_size 64m;`），否则上传会 413
 - 设置 `.env` 中 `TRUST_PROXY=1`，限流才能拿到真实来源 IP
-- `APP_URL` 填对外的完整地址（如 `https://share.example.com`），分享链接和上传接口的 Origin 校验都依赖它
+- `APP_URL` 填对外的完整地址（如 `https://share.example.com`），分享链接和上传/共享数据写入接口的 Origin 校验都依赖它
 
 ## 环境变量
 
@@ -65,6 +94,7 @@ services:
 | `APP_URL` | `http://localhost:3000` | 站点对外地址 |
 | `DATA_DIR` | `./data`（容器内 `/data`） | 数据根目录 |
 | `MAX_FILE_SIZE_MB` | `50` | 上传大小上限 |
+| `MAX_PAGE_STATE_SIZE_KB` | `256` | 每个分享的共享 JSON 大小上限 |
 | `TRUST_PROXY` | `0` | 反代后置 `1`，信任 `x-forwarded-for` |
 
 ## 本地开发

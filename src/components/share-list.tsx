@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   deleteShare,
   removeSharePassword,
+  resetSharePageState,
   setShareExpiry,
+  setSharePageStateEnabled,
   setSharePassword,
   type ShareActionResult,
 } from "@/actions/shares";
@@ -27,6 +29,9 @@ export type ShareRow = {
   expiresAt: number | null;
   expired: boolean; // 服务端按请求时刻计算（render 内不允许调 Date.now）
   createdAt: number;
+  pageStateEnabled: boolean;
+  pageStateSize: number | null;
+  pageStateUpdatedAt: number | null;
 };
 
 const KIND_LABELS: Record<string, string> = {
@@ -92,6 +97,11 @@ function ShareItem({ share }: { share: ShareRow }) {
           </a>
           <p className="mt-0.5 text-xs text-zinc-500" suppressHydrationWarning>
             {formatSize(share.size)} · {formatDateTime(share.createdAt)}
+            {share.pageStateEnabled && (
+              <span className="ml-2 text-indigo-600 dark:text-indigo-400">
+                共享数据
+              </span>
+            )}
             {share.hasPassword && (
               <span className="ml-2 text-amber-600 dark:text-amber-400">
                 🔒 有密码
@@ -188,6 +198,50 @@ function ShareItem({ share }: { share: ShareRow }) {
               </button>
             )}
           </div>
+
+          {share.kind === "html" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="mr-auto">
+                <p className="text-xs font-medium">共享页面数据</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  所有能访问分享的人共用并可修改。停用保留数据，重新启用后恢复。
+                  {share.pageStateEnabled && share.pageStateUpdatedAt !== null && (
+                    <>
+                      {" "}
+                      当前 {formatSize(share.pageStateSize ?? 0)} · 更新于{" "}
+                      {formatDateTime(share.pageStateUpdatedAt)}
+                    </>
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={pending}
+                className={secondaryButtonClass + " disabled:opacity-50"}
+                onClick={() =>
+                  run(() =>
+                    setSharePageStateEnabled(share.id, !share.pageStateEnabled),
+                  )
+                }
+              >
+                {share.pageStateEnabled ? "停用共享数据" : "启用共享数据"}
+              </button>
+              {share.pageStateEnabled && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  className={dangerButtonClass + " disabled:opacity-50"}
+                  onClick={() => {
+                    if (confirm("确定清空共享页面数据？此操作不可撤销。")) {
+                      run(() => resetSharePageState(share.id));
+                    }
+                  }}
+                >
+                  清空数据
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <button

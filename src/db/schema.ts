@@ -93,13 +93,30 @@ export const shares = sqliteTable(
     // 每次设置/修改/移除密码 +1，使已签发的访问 cookie 立即失效
     passwordVersion: integer("password_version").notNull().default(0),
     expiresAt: integer("expires_at"), // NULL = 永不过期
+    // 仅 HTML 可开启；开启后所有能访问分享的访客共用一份可写 JSON 数据
+    pageStateEnabled: integer("page_state_enabled", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: integer("created_at").notNull(),
   },
   (t) => [index("shares_owner_id_idx").on(t.ownerId)],
 );
+
+// 可存储 HTML 的共享数据：只保留最新 JSON 快照，version 用于乐观并发控制。
+// 启用分享时即创建行，避免首次写入的 insert 竞争；停用仅关闭访问，保留此行。
+export const sharePageStates = sqliteTable("share_page_states", {
+  shareId: text("share_id")
+    .primaryKey()
+    .references(() => shares.id, { onDelete: "cascade" }),
+  dataJson: text("data_json").notNull().default("null"),
+  version: integer("version").notNull().default(0),
+  sizeBytes: integer("size_bytes").notNull().default(4), // "null" 的 UTF-8 字节数
+  updatedAt: integer("updated_at").notNull(),
+});
 
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type ApiToken = typeof apiTokens.$inferSelect;
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type Share = typeof shares.$inferSelect;
+export type SharePageState = typeof sharePageStates.$inferSelect;

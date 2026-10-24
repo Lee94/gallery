@@ -7,6 +7,7 @@ const schema = z.object({
     .string()
     .min(32, "SESSION_SECRET 至少需要 32 个字符（可用 `openssl rand -base64 48` 生成）"),
   MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(50),
+  MAX_PAGE_STATE_SIZE_KB: z.coerce.number().int().positive().default(256),
   APP_URL: z.url().default("http://localhost:3000"),
   TRUST_PROXY: z.enum(["0", "1"]).default("0"),
 });
@@ -18,6 +19,7 @@ export interface Env {
   databasePath: string;
   sessionSecret: string;
   maxFileSizeBytes: number;
+  maxPageStateSizeBytes: number;
   appUrl: string;
   /** cookie 的 Secure 标志跟随 APP_URL 协议：http 部署时浏览器会拒存 Secure cookie */
   cookieSecure: boolean;
@@ -40,6 +42,7 @@ export function getEnv(): Env {
       databasePath: path.join(dataDir, "gallery.db"),
       sessionSecret: parsed.data.SESSION_SECRET,
       maxFileSizeBytes: parsed.data.MAX_FILE_SIZE_MB * 1024 * 1024,
+      maxPageStateSizeBytes: parsed.data.MAX_PAGE_STATE_SIZE_KB * 1024,
       appUrl: parsed.data.APP_URL.replace(/\/$/, ""),
       cookieSecure: new URL(parsed.data.APP_URL).protocol === "https:",
       trustProxy: parsed.data.TRUST_PROXY === "1",

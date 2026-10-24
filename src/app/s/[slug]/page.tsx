@@ -4,7 +4,9 @@ import type { Share } from "@/db/schema";
 import { resolveShareAccess } from "@/lib/share-access";
 import { readFileText } from "@/lib/storage";
 import { MarkdownViewer } from "@/components/markdown-viewer";
+import { PageStateHtmlViewer } from "@/components/page-state-html-viewer";
 import { PasswordGateForm } from "@/components/password-gate-form";
+import { getEnv } from "@/lib/env";
 
 const MARKDOWN_INLINE_LIMIT = 2 * 1024 * 1024; // 超过则降级为下载
 const TEXT_INLINE_LIMIT = 1 * 1024 * 1024;
@@ -49,6 +51,16 @@ function DownloadCard({ share, rawUrl }: { share: Share; rawUrl: string }) {
 async function Viewer({ share, rawUrl }: { share: Share; rawUrl: string }) {
   switch (share.kind) {
     case "html":
+      if (share.pageStateEnabled) {
+        return (
+          <PageStateHtmlViewer
+            rawUrl={rawUrl}
+            slug={share.slug}
+            title={share.originalName}
+            maxStateBytes={getEnv().maxPageStateSizeBytes}
+          />
+        );
+      }
       return (
         <iframe
           src={rawUrl}
@@ -132,6 +144,14 @@ export default async function SharePage({ params }: Props) {
           {share.originalName}
         </span>
         <span className="flex shrink-0 items-center gap-4 text-sm text-zinc-500">
+          {share.pageStateEnabled && (
+            <span
+              className="text-indigo-600 dark:text-indigo-400"
+              title="所有能访问此分享的人共用并可修改页面数据；刷新后看到他人的修改"
+            >
+              共享数据
+            </span>
+          )}
           <span>{formatSize(share.size)}</span>
           <a
             href={`${rawUrl}?download=1`}

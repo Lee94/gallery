@@ -2,13 +2,16 @@ import { z } from "zod";
 import type { Share, User } from "@/db/schema";
 import { hashPassword } from "@/lib/auth/password";
 import { fileTooLargeMessage, getEnv } from "@/lib/env";
+import { classifyFile } from "@/lib/file-kind";
 import { createShare } from "@/lib/shares/create";
 import {
   deleteShareFor,
   findOwnedShareBySlug,
   listSharesFor,
   removeSharePasswordFor,
+  resetSharePageStateFor,
   setShareExpiryFor,
+  setSharePageStateEnabledFor,
   setSharePasswordFor,
 } from "@/lib/shares/manage";
 
@@ -36,7 +39,7 @@ function fail(text: string): ToolResult {
 }
 
 // 「按 slug 找到本人所有的分享 → 失败即返回 isError → 执行操作」的公共骨架，
-// 收敛 delete/set_password/remove_password/set_expiry 四个工具开头的样板。
+// 收敛各管理工具开头的所有权校验样板。
 function withOwnedShare(
   userId: string,
   slug: string,
@@ -91,7 +94,7 @@ export const TOOLS: McpTool[] = [
     name: "upload_file",
     description:
       "上传一个文件到 Gallery 并返回可分享的 /s/<slug> 链接。支持 HTML/PDF/图片/Markdown/文本等；" +
-      "文件类型由 filename 的扩展名决定。可选设置访问密码与有效期。",
+      "文件类型由 filename 的扩展名决定。可选设置访问密码与有效期；HTML 可通过 pageStateEnabled 启用访客共享可写的 JSON 页面数据。",
     inputSchema: z.object({
       filename: z
         .string()
@@ -110,12 +113,19 @@ export const TOOLS: McpTool[] = [
         .string()
         .optional()
         .describe("可选：有效期，形如 30m / 12h / 7d / 2w，到期后链接自动失效"),
+      pageStateEnabled: z
+        .boolean()
+        .default(false)
+        .describe("仅 HTML：是否启用共享页面数据。所有能访问分享的访客都可读写；页面需引入 /sdk/page-state-v1.js"),
     }),
     handler: async (user, args) => {
       const env = getEnv();
       const buf = Buffer.from(args.content, args.encoding === "base64" ? "base64" : "utf8");
       if (buf.length === 0) return fail("文件内容为空");
       if (buf.length > env.maxFileSizeBytes) return fail(fileTooLargeMessage());
+      if (args.pageStateEnabled && classifyFile(args.filename).kind !== "html") {
+        return fail("只有 HTML 文件可以启用共享页面数据");
+      }
 
       let expiresAt: number | null = null;
       if (args.expiresIn) {
@@ -132,11 +142,13 @@ export const TOOLS: McpTool[] = [
         size: buf.length,
         passwordHash,
         expiresAt,
+        pageStateEnabled: args.pageStateEnabled,
       });
 
       const notes = [
         passwordHash ? "已设置访问密码" : null,
         expiresAt ? `有效期至 ${new Date(expiresAt).toISOString()}` : null,
+        share.pageStateEnabled ? "已启用共享页面数据（访客可编辑）" : null,
       ].filter(Boolean);
       const text =
         `已上传「${share.originalName}」\n分享链接：${url}` +
@@ -148,6 +160,7 @@ export const TOOLS: McpTool[] = [
         size: share.size,
         hasPassword: passwordHash !== null,
         expiresAt,
+        pageStateEnabled: share.pageStateEnabled,
       });
     },
   }),
@@ -167,12 +180,14 @@ export const TOOLS: McpTool[] = [
         hasPassword: s.passwordHash !== null,
         expiresAt: s.expiresAt,
         createdAt: s.createdAt,
+        pageStateEnabled: s.pageStateEnabled,
       }));
       const text = items.length
         ? items
             .map(
               (i) =>
                 `• ${i.filename} — ${i.url}` +
+                (i.pageStateEnabled ? " [共享数据]" : "") +
                 (i.hasPassword ? " 🔒" : "") +
                 (i.expiresAt ? ` (过期于 ${new Date(i.expiresAt).toISOString()})` : ""),
             )
@@ -180,6 +195,36 @@ export const TOOLS: McpTool[] = [
         : "还没有任何分享。";
       return ok(text, { count: items.length, shares: items });
     },
+  }),
+
+  defineTool({
+    name: "set_page_state_enabled",
+    description: "启用或停用 HTML 分享的共享页面数据。所有能访问分享的访客都可读写；停用保留数据，重新启用后恢复。",
+    inputSchema: z.object({
+      slug: slugArg,
+      enabled: z.boolean().describe("true 启用，false 停用"),
+    }),
+    handler: (user, args) =>
+      withOwnedShare(user.id, args.slug, (share) => {
+        const res = setSharePageStateEnabledFor(user.id, share.id, args.enabled);
+        if (res.error) return fail(res.error);
+        return ok(args.enabled ? "已启用共享页面数据" : "已停用共享页面数据（数据仍保留）", {
+          slug: args.slug,
+          pageStateEnabled: args.enabled,
+        });
+      }),
+  }),
+
+  defineTool({
+    name: "reset_page_state",
+    description: "清空一个已启用共享数据的 HTML 分享的页面 JSON，并递增版本使旧客户端写入冲突。只能操作自己的分享。",
+    inputSchema: z.object({ slug: slugArg }),
+    handler: (user, args) =>
+      withOwnedShare(user.id, args.slug, (share) => {
+        const res = resetSharePageStateFor(user.id, share.id);
+        if (res.error) return fail(res.error);
+        return ok("已清空共享页面数据", { slug: args.slug, reset: true });
+      }),
   }),
 
   defineTool({

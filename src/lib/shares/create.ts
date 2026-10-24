@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { getDb } from "@/db";
-import { shares, type Share } from "@/db/schema";
+import { sharePageStates, shares, type Share } from "@/db/schema";
 import { getEnv } from "@/lib/env";
 import { classifyFile } from "@/lib/file-kind";
 import { generateSlug } from "@/lib/slug";
@@ -13,6 +13,8 @@ export interface CreateShareInput {
   size: number; // 字节数（调用方负责在读入前做大小上限校验）
   passwordHash?: string | null;
   expiresAt?: number | null;
+  /** 仅对 HTML 生效；其他类型保持 false */
+  pageStateEnabled?: boolean;
 }
 
 export interface CreatedShare {
@@ -47,6 +49,7 @@ export async function createShare(input: CreateShareInput): Promise<CreatedShare
   const originalName =
     input.filename.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 255) || "untitled";
   const { kind, mimeType } = classifyFile(originalName);
+  const pageStateEnabled = kind === "html" && input.pageStateEnabled === true;
   const id = nanoid(16);
 
   const stream =
@@ -70,10 +73,22 @@ export async function createShare(input: CreateShareInput): Promise<CreatedShare
       passwordHash: input.passwordHash ?? null,
       passwordVersion: 0,
       expiresAt: input.expiresAt ?? null,
+      pageStateEnabled,
       createdAt: now,
     } satisfies Share;
     try {
-      db.insert(shares).values(values).run();
+      db.transaction((tx) => {
+        tx.insert(shares).values(values).run();
+        if (pageStateEnabled) {
+          tx.insert(sharePageStates).values({
+            shareId: id,
+            dataJson: "null",
+            version: 0,
+            sizeBytes: 4,
+            updatedAt: now,
+          }).run();
+        }
+      });
       return { slug, url: `${env.appUrl}/s/${slug}`, share: values };
     } catch (e) {
       if (isSlugTaken(e) && attempt < 3) continue;

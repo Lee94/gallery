@@ -1,6 +1,6 @@
 import { desc, eq, sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/db";
-import { shares, type Share } from "@/db/schema";
+import { sharePageStates, shares, type Share } from "@/db/schema";
 import { hashPassword } from "@/lib/auth/password";
 import { deleteFile } from "@/lib/storage";
 
@@ -84,6 +84,65 @@ export function setShareExpiryFor(
   }
 
   getDb().update(shares).set({ expiresAt }).where(eq(shares.id, shareId)).run();
+  return {};
+}
+
+export function setSharePageStateEnabledFor(
+  userId: string,
+  shareId: string,
+  enabled: boolean,
+): ShareMutation {
+  const found = findOwnedShare(userId, shareId);
+  if ("error" in found) return found;
+  if (enabled && found.share.kind !== "html") {
+    return { error: "只有 HTML 分享可以启用共享页面数据" };
+  }
+
+  const db = getDb();
+  db.transaction((tx) => {
+    tx.update(shares)
+      .set({ pageStateEnabled: enabled })
+      .where(eq(shares.id, shareId))
+      .run();
+    if (enabled) {
+      // 重新启用时保留旧数据；首次启用则创建版本 0 的空快照
+      tx.insert(sharePageStates)
+        .values({
+          shareId,
+          dataJson: "null",
+          version: 0,
+          sizeBytes: 4,
+          updatedAt: Date.now(),
+        })
+        .onConflictDoNothing()
+        .run();
+    }
+  });
+  return {};
+}
+
+export function resetSharePageStateFor(
+  userId: string,
+  shareId: string,
+): ShareMutation {
+  const found = findOwnedShare(userId, shareId);
+  if ("error" in found) return found;
+  if (!found.share.pageStateEnabled) return { error: "共享页面数据未启用" };
+
+  const now = Date.now();
+  getDb()
+    .insert(sharePageStates)
+    .values({ shareId, dataJson: "null", version: 1, sizeBytes: 4, updatedAt: now })
+    .onConflictDoUpdate({
+      target: sharePageStates.shareId,
+      set: {
+        dataJson: "null",
+        sizeBytes: 4,
+        version: sql`${sharePageStates.version} + 1`,
+        updatedAt: now,
+      },
+    })
+    .run();
   return {};
 }
 

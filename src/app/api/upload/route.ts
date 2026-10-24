@@ -1,19 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { fileTooLargeMessage, getEnv } from "@/lib/env";
+import { isValidOrigin } from "@/lib/request-origin";
 import { createShare } from "@/lib/shares/create";
-
-// route handler 没有 Server Action 的内建 Origin 校验，手动做（防 CSRF）
-function isValidOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  if (origin === getEnv().appUrl) return true;
-  try {
-    return new URL(origin).host === request.headers.get("host");
-  } catch {
-    return false;
-  }
-}
 
 export async function POST(request: NextRequest) {
   const env = getEnv();
@@ -41,12 +30,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: fileTooLargeMessage() }, { status: 413 });
   }
 
-  const { slug, url } = await createShare({
+  const { slug, url, share } = await createShare({
     ownerId: user.id,
     filename: file.name,
     content: file.stream(),
     size: file.size,
+    pageStateEnabled: form.get("pageStateEnabled") === "true",
   });
 
-  return NextResponse.json({ slug, url });
+  return NextResponse.json({ slug, url, pageStateEnabled: share.pageStateEnabled });
 }

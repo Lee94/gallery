@@ -11,10 +11,17 @@ type UploadItem = {
   error?: string;
 };
 
-export function UploadDropzone({ maxFileSizeMb }: { maxFileSizeMb: number }) {
+export function UploadDropzone({
+  maxFileSizeMb,
+  maxPageStateSizeKb,
+}: {
+  maxFileSizeMb: number;
+  maxPageStateSizeKb: number;
+}) {
   const router = useRouter();
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [pageStateEnabled, setPageStateEnabled] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const patch = (key: string, changes: Partial<UploadItem>) =>
@@ -69,6 +76,7 @@ export function UploadDropzone({ maxFileSizeMb }: { maxFileSizeMb: number }) {
 
     const fd = new FormData();
     fd.append("file", file);
+    fd.append("pageStateEnabled", String(pageStateEnabled));
     xhr.send(fd);
   };
 
@@ -117,6 +125,21 @@ export function UploadDropzone({ maxFileSizeMb }: { maxFileSizeMb: number }) {
           }}
         />
       </div>
+
+      <label className="flex cursor-pointer items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={pageStateEnabled}
+          onChange={(e) => setPageStateEnabled(e.target.checked)}
+          className="mt-1 accent-indigo-600"
+        />
+        <span>
+          <span className="font-medium">为本次上传的 HTML 启用共享页面数据</span>
+          <span className="mt-0.5 block text-xs text-zinc-500">
+            所有能打开分享的人都可以读取和修改，其他访客刷新后看到变化；每份最大 {maxPageStateSizeKb}KB。页面需接入 Gallery SDK，其他文件类型不受影响。
+          </span>
+        </span>
+      </label>
 
       {items.length > 0 && (
         <ul className="flex flex-col gap-1.5">

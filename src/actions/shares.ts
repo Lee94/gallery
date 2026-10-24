@@ -5,7 +5,9 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   deleteShareFor,
   removeSharePasswordFor,
+  resetSharePageStateFor,
   setShareExpiryFor,
+  setSharePageStateEnabledFor,
   setSharePasswordFor,
 } from "@/lib/shares/manage";
 
@@ -43,6 +45,27 @@ export async function setShareExpiry(
   const user = await getCurrentUser();
   if (!user) return { error: "请先登录" };
   const res = setShareExpiryFor(user.id, shareId, expiresAt);
+  if (!res.error) revalidatePath("/dashboard");
+  return res;
+}
+
+export async function setSharePageStateEnabled(
+  shareId: string,
+  enabled: boolean,
+): Promise<ShareActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "请先登录" };
+  const res = setSharePageStateEnabledFor(user.id, shareId, enabled);
+  if (!res.error) revalidatePath("/dashboard");
+  return res;
+}
+
+export async function resetSharePageState(
+  shareId: string,
+): Promise<ShareActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "请先登录" };
+  const res = resetSharePageStateFor(user.id, shareId);
   if (!res.error) revalidatePath("/dashboard");
   return res;
 }

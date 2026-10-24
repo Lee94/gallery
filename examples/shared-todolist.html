@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>共享 Todolist</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #f4f4f5; color: #18181b; }
+    main { width: min(680px, calc(100% - 32px)); margin: 48px auto; }
+    .card { overflow: hidden; border: 1px solid #e4e4e7; border-radius: 18px; background: white; box-shadow: 0 16px 50px rgb(0 0 0 / 6%); }
+    header { padding: 28px 28px 20px; }
+    h1 { margin: 0; font-size: 26px; letter-spacing: -0.03em; }
+    .description { margin: 8px 0 0; color: #71717a; font-size: 14px; line-height: 1.6; }
+    form { display: flex; gap: 10px; padding: 0 28px 24px; }
+    input[type="text"] { min-width: 0; flex: 1; border: 1px solid #d4d4d8; border-radius: 10px; padding: 11px 13px; font: inherit; outline: none; }
+    input[type="text"]:focus { border-color: #6366f1; box-shadow: 0 0 0 3px #e0e7ff; }
+    button { cursor: pointer; font: inherit; }
+    .add { border: 0; border-radius: 10px; padding: 0 18px; background: #4f46e5; color: white; font-weight: 600; }
+    .add:hover { background: #4338ca; }
+    .summary { padding: 12px 28px; border-top: 1px solid #f4f4f5; border-bottom: 1px solid #f4f4f5; color: #71717a; font-size: 13px; }
+    ul { margin: 0; padding: 8px 16px; list-style: none; }
+    li { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; }
+    li:hover { background: #fafafa; }
+    li input { width: 17px; height: 17px; accent-color: #4f46e5; }
+    .todo-text { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+    .done .todo-text { color: #a1a1aa; text-decoration: line-through; }
+    .delete { border: 0; border-radius: 7px; padding: 5px 9px; background: transparent; color: #a1a1aa; }
+    .delete:hover { background: #fef2f2; color: #dc2626; }
+    .empty { padding: 36px 20px; text-align: center; color: #a1a1aa; }
+    footer { padding: 18px 28px 24px; color: #71717a; font-size: 12px; line-height: 1.6; }
+    #status { min-height: 20px; color: #4f46e5; }
+    #status.error { color: #dc2626; }
+    @media (max-width: 520px) {
+      main { margin: 20px auto; }
+      header, form, footer { padding-left: 20px; padding-right: 20px; }
+      form { flex-direction: column; }
+      .add { padding: 11px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <header>
+      <h1>共享 Todolist</h1>
+      <p class="description">所有能打开这个分享的人共用一份清单。保存后，其他访客刷新页面即可看到变化。</p>
+    </header>
+    <form id="todo-form">
+      <input id="todo-input" type="text" maxlength="300" placeholder="添加一个待办事项…" autocomplete="off" required>
+      <button class="add" type="submit">添加</button>
+    </form>
+    <div class="summary"><span id="count">正在加载…</span></div>
+    <ul id="todo-list"></ul>
+    <div id="empty" class="empty" hidden>还没有待办事项，添加第一条吧。</div>
+    <footer>
+      <div id="status" role="status"></div>
+      数据由 Gallery 共享页面数据 SDK 保存，不使用浏览器 localStorage。
+    </footer>
+  </main>
+
+  <script src="/sdk/page-state-v1.js"></script>
+  <script>
+    (function () {
+      "use strict";
+
+      var store = window.GalleryPageState && window.GalleryPageState.connect();
+      var form = document.getElementById("todo-form");
+      var input = document.getElementById("todo-input");
+      var list = document.getElementById("todo-list");
+      var empty = document.getElementById("empty");
+      var count = document.getElementById("count");
+      var status = document.getElementById("status");
+
+      function readTodos(data) {
+        return data && Array.isArray(data.todos) ? data.todos : [];
+      }
+
+      function showStatus(message, isError) {
+        status.textContent = message;
+        status.classList.toggle("error", Boolean(isError));
+      }
+
+      function makeId() {
+        return window.crypto && typeof window.crypto.randomUUID === "function"
+          ? window.crypto.randomUUID()
+          : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+      }
+
+      function render(todos) {
+        list.replaceChildren();
+        empty.hidden = todos.length !== 0;
+        var remaining = todos.filter(function (todo) { return !todo.done; }).length;
+        count.textContent = todos.length + " 项事项 · " + remaining + " 项未完成";
+
+        todos.forEach(function (todo) {
+          var item = document.createElement("li");
+          item.className = todo.done ? "done" : "";
+
+          var checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = Boolean(todo.done);
+          checkbox.setAttribute("aria-label", "切换完成状态");
+          checkbox.addEventListener("change", function () {
+            mutate(function (latest) {
+              return latest.map(function (entry) {
+                return entry.id === todo.id ? Object.assign({}, entry, { done: !entry.done }) : entry;
+              });
+            });
+          });
+
+          var text = document.createElement("span");
+          text.className = "todo-text";
+          text.textContent = todo.text;
+
+          var remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "delete";
+          remove.textContent = "删除";
+          remove.addEventListener("click", function () {
+            mutate(function (latest) {
+              return latest.filter(function (entry) { return entry.id !== todo.id; });
+            });
+          });
+
+          item.append(checkbox, text, remove);
+          list.appendChild(item);
+        });
+      }
+
+      async function mutate(updater) {
+        if (!store) {
+          showStatus("共享数据 SDK 未加载，请通过 Gallery /s/<slug> 链接打开。", true);
+          return;
+        }
+        showStatus("正在保存…", false);
+        try {
+          var snapshot = await store.update(function (data) {
+            return { todos: updater(readTodos(data)) };
+          });
+          render(readTodos(snapshot.data));
+          showStatus("已保存，其他访客刷新后可见。", false);
+        } catch (error) {
+          showStatus(error.message || "保存失败，请重试。", true);
+        }
+      }
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        var text = input.value.trim();
+        if (!text) return;
+        var todo = { id: makeId(), text: text, done: false };
+        await mutate(function (latest) {
+          return latest.concat([todo]);
+        });
+        if (!status.classList.contains("error")) input.value = "";
+        input.focus();
+      });
+
+      async function load() {
+        if (!store) {
+          count.textContent = "无法连接共享数据";
+          showStatus("请上传此 HTML 并通过 Gallery /s/<slug> 链接打开，同时启用共享页面数据。", true);
+          return;
+        }
+        try {
+          var snapshot = await store.get();
+          render(readTodos(snapshot.data));
+          showStatus("共享数据已加载。", false);
+        } catch (error) {
+          count.textContent = "加载失败";
+          showStatus(error.message || "共享数据加载失败。", true);
+        }
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>

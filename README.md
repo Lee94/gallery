@@ -73,6 +73,11 @@ SDK 能力：
 - 分享页的 `?embed=1` 用于嵌入，`?source=1` 用于源码浏览；ZIP 导出和 Fork 复用同一分享访问控制。Fork 只复制当前公开文件与能力配置，不复制数据、附件、评论、密码或历史版本。
 - 可直接上传 `examples/shared-todolist.html` 体验。
 
+## CLI 与 AI Agent
+
+- **CLI**：`cli/gallery.mjs` 是零依赖的 Node 客户端，直接请求现有 `/api/mcp` 端点（Bearer API 令牌，在 `/settings/tokens` 创建），无需新增服务端接口。常用命令有 `upload`（含 `--dir` 多文件）、`ls`、`put-file`、`kv`、`versions` 等；`gallery call <tool> '<json>'` 可透传任意 MCP 工具。成功时 stdout 输出 JSON、失败时 stderr 输出 JSON 错误并以非零码退出，便于脚本和 agent 使用。配置用 `GALLERY_URL` / `GALLERY_TOKEN`，或 `gallery init` 写入 `~/.config/gallery/config.json`（权限 600）。详见 `cli/README.md`；也可 `pnpm link --global` 获得 `gallery` 命令。
+- **Skills**：`skills/` 目录提供一套面向 AI agent 的英文 skills（发布流程、Artifact 设计、页面数据、LLM、React 运行时），优先使用 MCP 工具，不可用时自动退化为上述 CLI。复制到 `.claude/skills/` 或 `~/.claude/skills/` 即可在 Claude Code 中使用。
+
 ## 部署（Docker）
 
 ```bash
